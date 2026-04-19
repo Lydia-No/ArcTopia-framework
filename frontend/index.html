@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>ArcTopia Dynamic Graph + Simulation</title>
+  <script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; }
+    #network { width: 100%; height: 70vh; border: 1px solid lightgray; margin-bottom: 20px; }
+    #info, #simulation { padding: 10px; border: 1px solid #ddd; margin-top: 10px; }
+    button, select { padding: 8px; margin-right: 8px; }
+  </style>
+</head>
+<body>
+
+<h2>ArcTopia Dynamic Graph + Scenario Simulation</h2>
+<div id="network"></div>
+
+<div id="info"><b>Click a node</b></div>
+
+<div id="simulation">
+  <b>Scenario simulation</b><br/><br/>
+  <label for="eventType">Simulated event:</label>
+  <select id="eventType">
+    <option value="check">check</option>
+    <option value="ESG_VIOLATION">ESG_VIOLATION</option>
+    <option value="THORIUM_EXCEEDED">THORIUM_EXCEEDED</option>
+    <option value="AUTHORITY_SUSPEND">AUTHORITY_SUSPEND</option>
+  </select>
+  <button id="simulateBtn">Simulate selected node</button>
+  <div id="simulationResult" style="margin-top: 10px;"></div>
+</div>
+
+<script>
+const API = "http://localhost:3000";
+let graphNodes = [];
+let selectedNodeId = null;
+
+async function getJSON(path) {
+  const res = await fetch(API + path);
+  return await res.json();
+}
+
+async function postJSON(path, payload) {
+  const res = await fetch(API + path, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload)
+  });
+  return await res.json();
+}
+
+function stateToColor(state) {
+  if (state === "VALID") return "green";
+  if (state === "CONDITIONAL") return "orange";
+  if (state === "FLAGGED") return "red";
+  if (state === "SUSPENDED") return "black";
+  return "gray";
+}
+
+async function buildGraph() {
+  const resources = await getJSON("/resources");
+  const lineage = await getJSON("/lineage");
+
+  graphNodes = [];
+
+  for (const r of resources) {
+    const state = await getJSON("/state/" + r.id);
+
+    graphNodes.push({
+      id: r.id,
+      label: `${r.name}\n(${state?.state || "UNKNOWN"})`,
+      color: stateToColor(state?.state),
+      stateData: state,
+      resourceName: r.name
+    });
+  }
+
+  const edges = lineage.map(l => ({
+    from: l.parent_resource_id,
+    to: l.child_resource_id
+  }));
+
+  const container = document.getElementById("network");
+
+  const network = new vis.Network(container, {
+    nodes: new vis.DataSet(graphNodes),
+    edges: new vis.DataSet(edges)
+  }, {});
+
+  network.on("click", function (params) {
+    if (params.nodes.length > 0) {
+      selectedNodeId = params.nodes[0];
+      const node = graphNodes.find(n => n.id === selectedNodeId);
+
+      document.getElementById("info").innerHTML = `
+        <b>Name:</b> ${node.resourceName}<br/>
+        <b>State:</b> ${node.stateData?.state || "UNKNOWN"}<br/>
+        <b>Reason:</b> ${node.stateData?.reason || "No reason recorded"}<br/>
+        <b>Resource ID:</b> ${node.id}
+      `;
+    }
+  });
+}
+
+document.getElementById("simulateBtn").addEventListener("click", async () => {
+  const eventType = document.getElementById("eventType").value;
+
+  if (!selectedNodeId) {
+    document.getElementById("simulationResult").innerHTML =
+      "<span style='color:red;'>Select a node first.</span>";
+    return;
+  }
+
+  const result = await postJSON("/simulate", {
+    resource_id: selectedNodeId,
+    simulated_event_type: eventType
+  });
+
+  document.getElementById("simulationResult").innerHTML = `
+    <b>Simulation result</b><br/>
+    <b>Mode:</b> ${result.mode}<br/>
+    <b>Resource ID:</b> ${result.resource_id}<br/>
+    <b>Simulated event:</b> ${result.simulated_event_type}<br/>
+    <b>Projected state:</b> ${result.state}<br/>
+    <b>Reason:</b> ${result.reason}
+  `;
+});
+
+buildGraph();
+</script>
+
+</body>
+</html>
