@@ -68,3 +68,6 @@ ArcTopia no longer stores only a flat status. It computes a structured internal 
   "authority": "APPROVED | SUSPENDED",
   "upstream": "VALID | FLAGGED | SUSPENDED"
 }
+## License
+
+This repository is governed by the terms stated in `LICENSE`.
