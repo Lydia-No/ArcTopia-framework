@@ -18,3 +18,7 @@ class LineageGraph:
     def children(self, resource_id):
 
         return list(self.graph.successors(resource_id))
+
+    def parents(self, resource_id):
+
+        return list(self.graph.predecessors(resource_id))
