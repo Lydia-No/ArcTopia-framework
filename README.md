@@ -18,7 +18,9 @@ ArcTopia is a computational legitimacy engine for dynamic systems.
 
 It is designed to compute, explain, simulate, and navigate whether a resource, project, or supply chain remains valid under changing constraints.
 
-## What ArcTopia does
+
+
+
 
 ArcTopia models:
 
